@@ -5,9 +5,10 @@ import numpy as np
 
 
 def printer(msg: str) -> None:
-    print()
-    print()
-    print(msg)
+    ...
+    # print()
+    # print()
+    # print(msg)
 
 
 class Data:
@@ -22,10 +23,8 @@ class Data:
             self.initRun()
 
         dataFrame = self.getData()
-        printer(dataFrame.head())
         if not self.colsExist(dataFrame):
             raise ValueError("Columns do not match expected schema.")
-        printer("All expected columns are present.")
         return self.stripCols(dataFrame)
 
     def stripCols(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -35,15 +34,35 @@ class Data:
 
     def colsExist(self, df: pd.DataFrame) -> bool:
         expected_cols = set(self.Columns())
-        printer(f"Expected columns: {expected_cols}")
         actual_cols = set(df.columns)
-        printer(f"Actual columns: {actual_cols}")
-        printer(f"Missing columns: {expected_cols - actual_cols}")
         return expected_cols.issubset(actual_cols)
 
     def getData(self) -> pd.DataFrame:
         df = pd.read_csv(self.path)
         df.replace({np.nan: None}, inplace=True)
+        return self.reformatTimestampToDate(df)
+
+    def reformatTimestampToDate(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        df = df.where(pd.notna(df), None)
+        df["Timestamp"] = pd.to_datetime(
+            df["Timestamp"], format="mixed", errors="coerce"
+        ).dt.date
+
+        df["Timestamp"] = df["Timestamp"].where(df["Timestamp"].notna(), None)
+
+        df["Date of Birth"] = pd.to_datetime(
+            df["Date of Birth"], format="mixed", errors="coerce"
+        ).dt.date
+
+        df["Date of Birth"] = df["Date of Birth"].where(
+            df["Date of Birth"].notna(), None
+        )
+
+        df["Row ID"] = df.index + 1
+
+        df["ID Number"] = df["ID Number"].astype(str).str.replace(".0", "", regex=False)
+
         return df
 
     def Columns(self) -> list:
@@ -52,7 +71,7 @@ class Data:
             "First_Name": "First Name",
             "Last_Name": "Last Name",
             "email": "Email Address",
-            "Mobile_Phone": "Phone number",
+            "Mobile_no": "Mobile no",
             "Status": "Status",
             "Gender": "Gender",
             "ID_number": "ID Number",
