@@ -7,6 +7,8 @@ import re
 from copy import deepcopy
 import numpy as np
 import warnings
+from datetime import datetime
+import random
 
 warnings.filterwarnings("ignore")
 
@@ -56,6 +58,14 @@ class Eazi:
                 ]
             )
         if isinstance(easyocr_dict, dict):
+            """
+            WHAT COULD GO WRONG
+            - Keys used to identify not being found completely
+            - Wrong image throwing error after extraction
+            SOLUTIONS
+            -Handle exceptions
+            -Have a backup routine when dictionary fails
+            """
             birth: list[str, str] = ["birth", "dob", "d.o.b"]
             id: list[str, str] = ["number", "id"]
             notId: list[str, str] = ["seria", "serial", "seri", "ser"]
@@ -78,6 +88,9 @@ class Eazi:
                                 if re.search(r"[0-9]+", key):
                                     dob = key
                                     break
+                if dob is None:
+                    dob = self.rawExtractionDOB(str(easyocr_dict))
+
                 for idKeyword in id:
                     if re.search(idKeyword, str(key).lower()):
                         checkSerial: list[str, str] = any(
@@ -98,115 +111,55 @@ class Eazi:
                                     break
                                 if re.search(r"[0-9]+", key):
                                     id_number: str = key
+                if id_number is None:
+                    id_number = self.rawExtractionID(str(easyocr_dict))
 
         else:
             easyocr_dict: str = easyocr_text
+            if id_number is None:
+                id_number = self.rawExtractionID(str(easyocr_text))
+            if dob is None:
+                dob = self.rawExtractionDOB(str(easyocr_text))
         return [easyocr_dict, id_number, dob]
+
+    def rawExtractionDOB(self, text: str) -> datetime.date:
+        dob: datetime.date = None
         """
-        WHAT COULD GO WRONG
-        - Keys used to identify not being found completely
-        - Wrong image throwing error after extraction
-        SOLUTIONS
-        -Handle exceptions
-        -Have a backup routine when dictionary fails
+        Final solution to fix cases where date is not extracted by the OCR technique
+        There is date of issue and prolly expiry date, fetch the oldest date
         """
-
-    def postProcessingIMG(self, IMG: Image) -> Image:
-        # Greyscale
-        IMG = cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
-        newName = self.image_path.split("/")[-1].split(".")[0]
-        outPuttest = f"./temp/{newName}.{self.image_path.split(".")[-1]}"
-        # Denoize
-        outPuttestD = f"./temp/denoized-{newName}.{self.image_path.split(".")[-1]}"
-        IMG: Image = cv2.bilateralFilter(IMG, 9, 75, 75)
-        cv2.imwrite(outPuttestD, IMG)
-        # Clahe
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        contrast_enhanced = clahe.apply(IMG)
-        image = cv2.resize(IMG, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-        image = cv2.cvtColor(image, cv2.COLOR_BAYER_BG2GRAY)
-        cv2.imwrite(outPuttest, image)
-        return image
-
-    def preprocess_image(self, IMG, visualize=False):
-        """
-        Preprocess image for optimal OCR performance
-
-        Args:
-            image_path (str): Path to the input image
-            visualize (bool): Whether to show processing steps
-
-        Returns:
-            processed_image: Preprocessed image ready for OCR
-        """
-        # Read the image
-        image = IMG
-
-        # Store original for visualization if needed
-        original = image.copy()
-
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Noise reduction with bilateral filter (preserves edges)
-        denoised = cv2.bilateralFilter(gray, 9, 75, 75)
-
-        # Contrast enhancement using CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        contrast_enhanced = clahe.apply(denoised)
-
-        # Thresholding to create binary image
-        # Using adaptive threshold to handle varying lighting conditions
-        binary = cv2.adaptiveThreshold(
-            contrast_enhanced,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            11,
-            2,
+        dateFormat001: str = (
+            "String with dots eg 19.12.2025 which equates to dd/mm/yyyy"
+        )
+        dateFormat001Regex: re.Pattern = re.compile(
+            r"((\d{1,4})[\s]*[.,][\s]*(\d{1,4})[\s]*[.,][\s]*(\d{1,4}))"
         )
 
-        # Morphological operations to remove noise and strengthen text
-        kernel = np.ones((1, 1), np.uint8)
-        processed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-        processed = cv2.morphologyEx(processed, cv2.MORPH_OPEN, kernel)
+        results: set = [
+            datetime.strptime(
+                (re.sub(r"[\.,]", "-", re.sub(r"[\s]+", "", x[0]))), "%d-%m-%Y"
+            ).date()
+            for x in re.findall(dateFormat001Regex, text)
+        ]
 
-        # Optional: Deskew image if needed
-        processed = self.deskew(processed)
+        if len(results) > 0:
+            dob = min(results)
+        return dob
 
-        # Visualization of processing steps
-        if visualize:
-            self.visualize_processing(
-                original, gray, denoised, contrast_enhanced, binary, processed
-            )
-
-        return processed
-
-    def deskew(self, image):
+    def rawExtractionID(self, text: str) -> int:
+        idNumber: str = None
         """
-        Deskew image to correct text alignment
+        ISSUES
+        Too many loosing heroines, hehe
+        - More than one int val in the national ID => [Id number,serial Number, some random floating num??!]
+        The regex ^[0-9]{6,9}$ will read all of this prolly
+        Use russian rollete if more than one val is found, hehe
         """
-        # Find all contours
-        coords = np.column_stack(np.where(image > 0))
-
-        # Get angle of skewness
-        angle = cv2.minAreaRect(coords)[-1]
-
-        # Adjust angle
-        if angle < -45:
-            angle = -(90 + angle)
-        else:
-            angle = -angle
-
-        # Rotate image to correct skew
-        (h, w) = image.shape[:2]
-        center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(
-            image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
-        )
-
-        return rotated
+        idRegex: re.Pattern = re.compile(r"[0-9]{6,9}")
+        results: list[str, str] = re.findall(idRegex, text)
+        if len(results) > 0:
+            idNumber = results[random.randint(0, (len(results) - 1))]
+        return idNumber
 
 
 if __name__ == "__main__":

@@ -34,12 +34,13 @@ class ImageListing:
                 ocrExtraction: list | str = returnedData[0]
                 idNumber: str = returnedData[1]
                 dob: str = returnedData[2]
-            ocrText.append(ocrExtraction)
-            idNumberData.append(idNumber)
-            dobData.append(dob)
+                print(f"Date of Birth : {dob} while ID Number : {idNumber}")
+                ocrText.append(ocrExtraction)
+                idNumberData.append(idNumber)
+                dobData.append(dob)
 
         self.data["OCR Text"] = ocrText
-        self.data["OCR ID Number"] = idNumber
+        self.data["OCR ID Number"] = idNumberData
         self.data["OCR Date Of Birth"] = dobData
         return self.data
 
