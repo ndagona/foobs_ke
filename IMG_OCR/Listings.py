@@ -20,21 +20,30 @@ class ImageListing:
             ocrExtraction: None = None
             idNumber: None = None
             dob: None = None
-            new = re.search(
-                r"(id\=)[A-Za-z0-9\_\-]+|(d\/)[A-Za-z0-9\_\-]+", idLink
-            ).group()
-            newNew = re.sub(r"(id\=)|(d\/)", "", new)
-            downloadLink: str = (
-                f"https://drive.google.com/uc?export=download&id={newNew}"
-            )
-            imagePath: Path = f"./tempImages/{re.sub(r"[^A-Za-z0-9]+","", newNew)}.png"
-            downloadStatus: bool = self.downloadImage(downloadLink, imagePath)
-            if downloadStatus:
-                returnedData: list[dict | str, str, str] = OCR_class.main(imagePath)
-                ocrExtraction: list | str = returnedData[0]
-                idNumber: str = returnedData[1]
-                dob: str = returnedData[2]
-                print(f"Date of Birth : {dob} while ID Number : {idNumber}")
+            try:
+                new = re.search(
+                    r"(id\=)[A-Za-z0-9\_\-]+|(d\/)[A-Za-z0-9\_\-]+", idLink
+                ).group()  # Not found
+                newNew = re.sub(r"(id\=)|(d\/)", "", new)
+                downloadLink: str = (
+                    f"https://drive.google.com/uc?export=download&id={newNew}"
+                )
+                imagePath: Path = (
+                    f"./tempImages/{re.sub(r"[^A-Za-z0-9]+","", newNew)}.png"
+                )
+                downloadStatus: bool = self.downloadImage(downloadLink, imagePath)
+                if downloadStatus:
+                    returnedData: list[dict | str, str, str] = OCR_class.main(imagePath)
+                    ocrExtraction: list | str = returnedData[0]
+                    idNumber: str = returnedData[1]
+                    dob: str = returnedData[2]
+                    ocrText.append(ocrExtraction)
+                    idNumberData.append(idNumber)
+                    dobData.append(dob)
+            except Exception as e:
+                print(
+                    f"\n\n Failed to fetch OCR data for file link : {idLink} \n with err \n {e} \n\n"
+                )
                 ocrText.append(ocrExtraction)
                 idNumberData.append(idNumber)
                 dobData.append(dob)

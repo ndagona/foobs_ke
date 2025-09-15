@@ -23,7 +23,7 @@ class App:
         conn = db_instance.connect_postgres()
         sqlQuery = getQuery("PostgresSQL\CoreRaw.sql")
         QueriedData: pd.DataFrame = db_instance.queryData(sqlQuery, conn)
-        ImageListingClass: pd.DataFrame = ImageListing(QueriedData.head(3)).main()
+        ImageListingClass: pd.DataFrame = ImageListing(QueriedData).main()
         exportInstance = theExporter(ImageListingClass)
         exportInstance.exportToCSV(path="./Exports/Data.csv")
 
