@@ -50,12 +50,21 @@ def loopThroughList(folderPath: Path) -> None:
         print()
         print(f"Working on file 000{ind} and the Path is : {csvPath}".center(120, "*"))
         print()
+        exportPath: Path = f"./Exports/ExportedData_000{ind}.csv"
+        if os.path.isfile(exportPath):
+            print(f"Skipped! Already worked on!!!".center(120, "-"))
+            continue
         App(
             path=csvPath,
             draft0=f"./Exports/DraftData_000{ind}.csv",
             tableName=f"foobs_data_ke_000{ind}",
-            exportPath=f"./Exports/ExportedData_000{ind}.csv",
+            exportPath=exportPath,
         ).main()
+        print()
+        print()
+
+
+def trimCSVsHeaders(): ...
 
 
 if __name__ == "__main__":
